@@ -23,13 +23,32 @@ int main(int argc, char **argv)
     if (rank == 0)
     {
         // Sender process
-        printf("Enter a word: ");
+        // printf("Enter a word: ");
         scanf("%s", word);
 
         // Send the word to the receiver
+        // int MPI_Ssend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm);
+        /**
+         * buf: Pointer to the data buffer you want to send.
+         * count: Number of elements in the buffer.
+         * datatype: MPI data type of the elements in the buffer.
+         * dest: Rank of the destination process.
+         * tag: Message tag, an integer used to label the message.
+         * comm: MPI communicator.
+         */
         MPI_Ssend(word, wordSize, MPI_CHAR, 1, 0, MPI_COMM_WORLD);
 
         // Receive the modified word from the receiver
+        // int MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag, MPI_Comm comm, MPI_Status *status);
+        /**
+         * buf: Pointer to the data buffer where the received data will be stored.
+         * count: Number of elements to be received into the buffer.
+         * datatype: MPI data type of the elements in the buffer.
+         * source: Rank of the source process (the sender).
+         * tag: Message tag, an integer used to label the message.
+         * comm: MPI communicator.
+         * status: Address of an MPI_Status structure that will hold information about the received message (use MPI_STATUS_IGNORE if you don't need this information).
+         */
         MPI_Recv(word, wordSize, MPI_CHAR, 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
         printf("Modified word received: %s\n", word);
