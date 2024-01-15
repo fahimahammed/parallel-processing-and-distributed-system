@@ -35,7 +35,7 @@ int main(int argc, char **argv)
     if (rank == 0)
     {
         // Matrix A and Matrix B both will be filled with random numbers
-        srand(time(NULL));
+        // srand(time(NULL));
         for (int i = 0; i < M; i++)
         {
             for (int j = 0; j < N; j++)
@@ -124,7 +124,6 @@ int main(int argc, char **argv)
     // Slave Processes
     if (rank > 0)
     {
-
         // Source process ID is defined
         source = 0;
 
@@ -141,7 +140,6 @@ int main(int argc, char **argv)
         MPI_Recv(&matB, N * N, MPI_DOUBLE, source, 1, MPI_COMM_WORLD, &status);
 
         // Matrix multiplication
-
         for (int k = 0; k < M; k++)
         {
             for (int i = 0; i < rows; i++)
@@ -166,4 +164,5 @@ int main(int argc, char **argv)
     }
 
     MPI_Finalize();
+    return 0;
 }
