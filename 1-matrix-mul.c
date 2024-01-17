@@ -4,9 +4,9 @@
 #include <time.h>
 #include <sys/time.h>
 
-#define M 3
-#define N 4
-#define P 3
+#define M 2
+#define N 2
+#define P 2
 
 MPI_Status status;
 
