@@ -4,13 +4,11 @@
 #include <time.h>
 #include <sys/time.h>
 
-#define M 2
-#define N 2
-#define P 2
+#define MAX 1000
 
 MPI_Status status;
 
-double matA[M][N], matB[N][P], matC[M][P];
+double matA[MAX][MAX], matB[MAX][MAX], matC[MAX][MAX];
 
 int main(int argc, char **argv)
 {
@@ -20,6 +18,30 @@ int main(int argc, char **argv)
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    if (argc != 5)
+    {
+        if (rank == 0)
+        {
+            printf("Usage: %s <K> <M> <N> <P>\n", argv[0]);
+        }
+        MPI_Abort(MPI_COMM_WORLD, 1);
+    }
+
+    int K = atoi(argv[1]);
+    int M = atoi(argv[2]);
+    int N = atoi(argv[3]);
+    int P = atoi(argv[4]);
+
+    // Check input constraints
+    if (K * M * N > MAX || K * N * P > MAX || K * M * P > MAX)
+    {
+        if (rank == 0)
+        {
+            printf("Input dimensions exceed the maximum allowed limit. Please adjust the values.\n");
+        }
+        MPI_Abort(MPI_COMM_WORLD, 1);
+    }
 
     // Validate that the number of processes is appropriate for this program
     // if ((size < M || size % M != 0) && rank == 0)
