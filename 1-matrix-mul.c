@@ -15,6 +15,7 @@ double matA[M][N], matB[N][P], matC[M][P];
 int main(int argc, char **argv)
 {
     int size, rank, slaveTaskCount, source, dest, rows, offset;
+    double startTime, endTime;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -35,7 +36,7 @@ int main(int argc, char **argv)
     if (rank == 0)
     {
         // Matrix A and Matrix B both will be filled with random numbers
-        // srand(time(NULL));
+        srand(time(NULL));
         for (int i = 0; i < M; i++)
         {
             for (int j = 0; j < N; j++)
@@ -82,6 +83,7 @@ int main(int argc, char **argv)
 
         // Calculation details are assigned to slave tasks. Process 1 onwards;
         // Each message's tag is 1
+        startTime = MPI_Wtime();
         for (dest = 1; dest <= slaveTaskCount; dest++)
         {
             // Acknowledging the offset of the Matrix A
@@ -110,6 +112,7 @@ int main(int argc, char **argv)
             MPI_Recv(&matC[offset][0], rows * P, MPI_DOUBLE, source, 2, MPI_COMM_WORLD, &status);
         }
 
+        endTime = MPI_Wtime();
         // Print the result matrix
         printf("\nResult Matrix C = Matrix A * Matrix B:\n\n");
         for (int i = 0; i < M; i++)
@@ -119,6 +122,8 @@ int main(int argc, char **argv)
             printf("\n");
         }
         printf("\n");
+
+        printf("Time taken for multiplication: %f seconds\n", endTime - startTime);
     }
 
     // Slave Processes

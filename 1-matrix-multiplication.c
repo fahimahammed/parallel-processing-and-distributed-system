@@ -1,86 +1,128 @@
-#include <stdio.h>
-#include <mpi.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include "mpi.h"
+#include <time.h>
+#include <sys/time.h>
 
-int A[2][2], B[2][2], C[2][2];
+#define MAX_DIM 1000
 
-MPI_Status s;
+MPI_Status status;
+
+double matA[MAX_DIM][MAX_DIM], matB[MAX_DIM][MAX_DIM], matC[MAX_DIM][MAX_DIM];
 
 int main(int argc, char **argv)
 {
-    int rank, numOfProcessor, row, i, j, start;
+    int size, rank, slaveTaskCount, source, dest, rows, offset, K, M, N, P;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &numOfProcessor);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    slaveTaskCount = size - 1;
 
     if (rank == 0)
     {
-        A[0][0] = 1;
-        A[0][1] = 2;
-        A[1][0] = 2;
-        A[1][1] = 3;
+        printf("Enter the number of matrices (K): ");
+        scanf("%d", &K);
+        printf("Enter the dimensions M, N, P: ");
+        scanf("%d %d %d", &M, &N, &P);
 
-        B[0][0] = 2;
-        B[0][1] = 2;
-        B[1][0] = 4;
-        B[1][1] = 3;
-
-        row = 2 / (numOfProcessor - 1);
-
-        start = 0;
-
-        for (i = 1; i <= numOfProcessor - 1; i++)
+        if (K * M * N > MAX_DIM || K * N * P > MAX_DIM || K * M * P > MAX_DIM)
         {
-            // start, end, row, martrix row, martix b
-            MPI_Send(&start, 1, MPI_INT, i, 1, MPI_COMM_WORLD);
-            MPI_Send(&row, 1, MPI_INT, i, 1, MPI_COMM_WORLD);
-            MPI_Send(&A[start][0], 2 * row, MPI_INT, i, 1, MPI_COMM_WORLD);
-            MPI_Send(&B, 2 * 2, MPI_INT, i, 1, MPI_COMM_WORLD);
-            start = row + start;
+            printf("Input dimensions exceed the maximum allowed size.\n");
+            MPI_Finalize();
+            return 1;
         }
 
-        for (i = 1; i <= numOfProcessor - 1; i++)
+        srand(time(NULL));
+        for (int i = 0; i < M; i++)
         {
-            MPI_Recv(&start, 1, MPI_INT, i, 2, MPI_COMM_WORLD, &s);
-            MPI_Recv(&row, 1, MPI_INT, i, 2, MPI_COMM_WORLD, &s);
-            MPI_Recv(&C[start][0], 2 * row, MPI_INT, i, 2, MPI_COMM_WORLD, &s);
-        }
-
-        printf("\nResult: \n");
-        for (i = 0; i < 2; i++)
-        {
-            for (j = 0; j < 2; j++)
+            for (int j = 0; j < N; j++)
             {
-                printf("%d   ", C[i][j]);
+                matA[i][j] = rand() % 10;
+            }
+        }
+        for (int i = 0; i < N; i++)
+        {
+            for (int j = 0; j < P; j++)
+            {
+                matB[i][j] = rand() % 10;
+            }
+        }
+
+        printf("\n\t\tMatrix - Matrix Multiplication using MPI\n");
+
+        printf("\nMatrix A\n\n");
+        for (int i = 0; i < M; i++)
+        {
+            for (int j = 0; j < N; j++)
+            {
+                printf("%.0f\t", matA[i][j]);
             }
             printf("\n");
         }
-    }
 
-    if (rank > 0)
-    {
-        MPI_Recv(&start, 1, MPI_INT, 0, 1, MPI_COMM_WORLD, &s);
-        MPI_Recv(&row, 1, MPI_INT, 0, 1, MPI_COMM_WORLD, &s);
-        MPI_Recv(&A, 2 * row, MPI_INT, 0, 1, MPI_COMM_WORLD, &s);
-        MPI_Recv(&B, 2 * 2, MPI_INT, 0, 1, MPI_COMM_WORLD, &s);
-
-        for (int p = 0; p < 2; p++)
+        printf("\nMatrix B\n\n");
+        for (int i = 0; i < N; i++)
         {
-            for (int q = 0; q < row; q++)
+            for (int j = 0; j < P; j++)
             {
-                C[p][q] = 0;
+                printf("%.0f\t", matB[i][j]);
+            }
+            printf("\n");
+        }
 
-                for (int r = 0; r < 2; r++)
-                {
-                    C[p][q] = C[p][q] + A[q][r] * B[r][p];
-                }
+        rows = M / slaveTaskCount;
+        offset = 0;
+
+        for (dest = 1; dest <= slaveTaskCount; dest++)
+        {
+            MPI_Send(&offset, 1, MPI_INT, dest, 1, MPI_COMM_WORLD);
+            MPI_Send(&rows, 1, MPI_INT, dest, 1, MPI_COMM_WORLD);
+            MPI_Send(&matA[offset][0], rows * N, MPI_DOUBLE, dest, 1, MPI_COMM_WORLD);
+            MPI_Send(&matB, N * P, MPI_DOUBLE, dest, 1, MPI_COMM_WORLD);
+
+            offset = offset + rows;
+        }
+
+        for (int i = 1; i <= slaveTaskCount; i++)
+        {
+            source = i;
+            MPI_Recv(&offset, 1, MPI_INT, source, 2, MPI_COMM_WORLD, &status);
+            MPI_Recv(&rows, 1, MPI_INT, source, 2, MPI_COMM_WORLD, &status);
+            MPI_Recv(&matC[offset][0], rows * P, MPI_DOUBLE, source, 2, MPI_COMM_WORLD, &status);
+        }
+
+        printf("\nResult Matrix C = Matrix A * Matrix B:\n\n");
+        for (int i = 0; i < M; i++)
+        {
+            for (int j = 0; j < P; j++)
+                printf("%.0f\t", matC[i][j]);
+            printf("\n");
+        }
+        printf("\n");
+    }
+    else
+    {
+        source = 0;
+        MPI_Recv(&offset, 1, MPI_INT, source, 1, MPI_COMM_WORLD, &status);
+        MPI_Recv(&rows, 1, MPI_INT, source, 1, MPI_COMM_WORLD, &status);
+        MPI_Recv(&matA, rows * N, MPI_DOUBLE, source, 1, MPI_COMM_WORLD, &status);
+        MPI_Recv(&matB, N * P, MPI_DOUBLE, source, 1, MPI_COMM_WORLD, &status);
+
+        for (int k = 0; k < M; k++)
+        {
+            for (int i = 0; i < rows; i++)
+            {
+                matC[i][k] = 0.0;
+                for (int j = 0; j < N; j++)
+                    matC[i][k] = matC[i][k] + matA[i][j] * matB[j][k];
             }
         }
 
-        MPI_Send(&start, 1, MPI_INT, 0, 2, MPI_COMM_WORLD);
-        MPI_Send(&row, 1, MPI_INT, 0, 2, MPI_COMM_WORLD);
-        MPI_Send(&C, 2 * row, MPI_INT, 0, 2, MPI_COMM_WORLD);
+        MPI_Send(&offset, 1, MPI_INT, 0, 2, MPI_COMM_WORLD);
+        MPI_Send(&rows, 1, MPI_INT, 0, 2, MPI_COMM_WORLD);
+        MPI_Send(&matC, rows * P, MPI_DOUBLE, 0, 2, MPI_COMM_WORLD);
     }
 
     MPI_Finalize();
