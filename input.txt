@@ -1,5 +1,1 @@
-This is a sample input file.
-It contains some words for testing.
-The words in this file will be counted and sorted.
-You can add more words to increase the complexity of the test.
-Test the MPI program with different input files.
+This ois ao sample input file fof of fo ooo.
