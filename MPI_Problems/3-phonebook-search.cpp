@@ -3,9 +3,6 @@
 
 using namespace std;
 
-//... To compile: mpic++ phonebook-search.cpp -o phonebook-search
-//... To run: mpirun -n 4 ./phonebook-search phonebook1.txt phonebook1.txt
-
 double start_time;
 
 void send_int(int number, int receiver)
@@ -42,8 +39,6 @@ string vector_to_string(vector<string> &words, int start, int end)
     {
         text += words[i] + "\n";
     }
-
-    // cout << "Text ======>>> " << text << endl;
     return text;
 }
 
@@ -107,7 +102,7 @@ int main(int argc, char **argv)
         vector<string> names, phone_numbers; // name phone list
         vector<string> file_names(argv + 1, argv + argc);
         read_phonebook(file_names, names, phone_numbers);
-        int segment = names.size() / world_size - 1; // change // 5
+        int segment = names.size() / world_size; // change // 5
 
         for (int i = 1; i < world_size; i++)
         {
@@ -118,11 +113,11 @@ int main(int argc, char **argv)
             send_string(phone_numbers_string, i);
         }
 
-        // string name = "Henry";
-        // for (int i = 0; i < segment; i++)
-        // {
-        //     check(names[i], phone_numbers[i], name, world_rank);
-        // }
+        string name = "John";
+        for (int i = 0; i < segment; i++)
+        {
+            check(names[i], phone_numbers[i], name, world_rank);
+        }
     }
     else
     {
@@ -131,9 +126,7 @@ int main(int argc, char **argv)
         string phone_numbers_string = receive_string(0);
         vector<string> phone_numbers = string_to_vector(phone_numbers_string);
 
-        cout << "names: ====>>>>>" << names_string << "Rank: =====>>>> " << world_rank << endl;
-
-        string name = "Jackson";
+        string name = "John";
         for (int i = 0; i < names.size(); i++)
         {
             check(names[i], phone_numbers[i], name, world_rank);
