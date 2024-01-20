@@ -14,7 +14,7 @@
 				"-L",
 				"\"C:/Program Files (x86)/Microsoft SDKs/MPI/Lib/x64/\"", // Enclose the path in double quotes
 				"-lmsmpi",
-				"-lstdc++", // Add this line
+				"-lstdc++",
 				"-o",
 				"${fileDirname}\\${fileBasenameNoExtension}.exe"
 			],

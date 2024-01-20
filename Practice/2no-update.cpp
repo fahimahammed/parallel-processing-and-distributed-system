@@ -32,6 +32,7 @@ int main()
     while (file >> word)
     {
         ++wordCount[word];
+        cout << "\nword: : : " << word << endl;
     }
 
     file.close();
