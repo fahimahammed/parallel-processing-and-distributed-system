@@ -1,63 +1,149 @@
 #include <iostream>
 #include <fstream>
-#include <chrono>
 #include <string>
+#include <vector>
+#include <mpi.h>
+#include <bits/stdc++.h>
 
 using namespace std;
-using namespace std::chrono;
 
-int main()
+vector<string> words;
+
+void sendInt(int number, int receiver)
 {
-    int numProcesses; // Currently unused, but could be implemented for parallelization
-    string pattern;
+    MPI_Send(&number, 1, MPI_INT, receiver, 1, MPI_COMM_WORLD);
+}
 
-    // Prompt for pattern input
-    cout << "Enter the pattern to search (e.g., '%x%'): ";
-    cin >> pattern;
+int receiveInt(int sender)
+{
+    int number;
+    MPI_Recv(&number, 1, MPI_INT, sender, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    return number;
+}
 
-    // Read the paragraph from the specified file
-    ifstream file("words.txt");
-    string paragraph;
+void sendString(const string &text, int receiver)
+{
+    int length = static_cast<int>(text.size()) + 1;
+    sendInt(length, receiver);
+    MPI_Send(&text[0], length, MPI_CHAR, receiver, 1, MPI_COMM_WORLD);
+}
 
-    if (file.is_open())
+string receiveString(int sender)
+{
+    int length = receiveInt(sender);
+    char *text = new char[length];
+    MPI_Recv(text, length, MPI_CHAR, sender, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    return string(text);
+}
+
+string vectorToString(const vector<string> &words, int start, int end)
+{
+    string text = "";
+    for (int i = start; i < min(static_cast<int>(words.size()), end); i++)
     {
-        getline(file, paragraph);
-        file.close();
+        text += words[i] + "\n";
     }
-    else
+    return text;
+}
+
+vector<string> stringToVector(const string &text)
+{
+    stringstream x(text);
+    vector<string> words;
+    string word;
+    while (x >> word)
     {
-        cerr << "Error opening file." << endl;
+        words.push_back(word);
+    }
+    return words;
+}
+
+int countPatternOccurrences(const vector<string> &words, const string &pattern)
+{
+    int occurrences = 0;
+    for (const auto &w : words)
+    {
+        if (pattern.size() == 3 && pattern[0] == '%' && pattern[2] == '%' &&
+            w.find(pattern[1]) != string::npos && w.find(pattern[1]) != 0 &&
+            w.find(pattern[1]) != w.size() - 1)
+        {
+            occurrences++;
+        }
+    }
+    return occurrences;
+}
+
+int main(int argc, char **argv)
+{
+    MPI_Init(&argc, &argv);
+
+    int worldSize, worldRank;
+    MPI_Comm_size(MPI_COMM_WORLD, &worldSize);
+    MPI_Comm_rank(MPI_COMM_WORLD, &worldRank);
+
+    if (argc != 3)
+    {
+        if (!worldRank)
+        {
+            cerr << "Usage: " << argv[0] << " <pattern> <filename>" << endl;
+        }
+        MPI_Finalize();
         return 1;
     }
 
-    // Start time measurement
-    auto start = high_resolution_clock::now();
+    string pattern = argv[1];
+    string filename = argv[2];
 
-    int count = 0;
-    int i = 0;
-
-    while (i < paragraph.length())
+    if (!worldRank)
     {
-        // Corrected pattern search
-        i = paragraph.find_first_of(pattern, i);
-        if (i == string::npos)
+        ifstream file(filename);
+        if (!file.is_open())
         {
-            break;
+            cerr << "Error: Unable to open file " << filename << endl;
+            MPI_Finalize();
+            return 1;
         }
-        // Ensure full pattern match
-        if (paragraph.substr(i, pattern.length()) == pattern)
+
+        string word;
+        while (file >> word)
         {
-            count++;
+            words.push_back(word);
         }
-        i += pattern.length();
+        file.close();
+
+        int totalWords = words.size();
+        int segmentSize = totalWords / (worldSize - 1);
+        int remainingSegmentSize = totalWords % (worldSize - 1);
+
+        for (int i = 1; i < worldSize; i++)
+        {
+            int start = i * segmentSize, end = start + segmentSize;
+            string segmentString = vectorToString(words, start, end);
+            sendString(segmentString, i);
+        }
+
+        vector<string> segment;
+        for (int i = 0; i < segmentSize; i++)
+        {
+            segment.push_back(words[i]);
+        }
+
+        int totalOccurrences = countPatternOccurrences(segment, pattern);
+        for (int i = 1; i < worldSize; i++)
+        {
+            totalOccurrences += receiveInt(i);
+        }
+
+        cout << "===> occurrences " << totalOccurrences << endl;
     }
-
-    // End time measurement
-    auto end = high_resolution_clock::now();
-    auto duration = duration_cast<microseconds>(end - start);
-
-    cout << "Total time taken: " << duration.count() << " microseconds" << endl;
-    cout << "Number of occurrences of the pattern '" << pattern << "': " << count << endl;
+    else
+    {
+        string segmentString = receiveString(0);
+        vector<string> segmentVector = stringToVector(segmentString);
+        int occurrences = countPatternOccurrences(segmentVector, pattern);
+        sendInt(occurrences, 0);
+    }
+    MPI_Finalize();
 
     return 0;
 }
